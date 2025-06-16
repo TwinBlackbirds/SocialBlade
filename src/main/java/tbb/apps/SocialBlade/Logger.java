@@ -1,4 +1,4 @@
-package tbb.apps.JScraper;
+package tbb.apps.SocialBlade;
 
 import java.nio.file.Files;
 import java.nio.file.Path;

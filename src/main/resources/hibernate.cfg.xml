@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-configuration PUBLIC
+    "-//Hibernate/Hibernate Configuration DTD 3.0//EN"
+    "http://hibernate.org/dtd/hibernate-configuration-3.0.dtd">
+<hibernate-configuration>
+  <session-factory>
+
+    <!-- SQLite dialect from Gwenn -->
+    <property name="hibernate.dialect">tbb.db.Driver.SQLiteDialect</property>
+
+    <!-- JDBC driver and URL -->
+    <property name="hibernate.connection.driver_class">org.sqlite.JDBC</property>
+    <property name="hibernate.connection.url">jdbc:sqlite:database.sqlite</property>
+
+    <!-- Schema auto-update -->
+    <property name="hibernate.hbm2ddl.auto">update</property>
+
+    <!-- Debugging SQL -->
+    <property name="hibernate.show_sql">true</property>
+    <property name="hibernate.format_sql">true</property>
+
+    <!-- Optional: JDBC connection pool -->
+    <property name="hibernate.connection.pool_size">1</property>
+
+    <!-- Optional: Disable second-level cache (safe for testing) -->
+    <property name="hibernate.cache.use_second_level_cache">false</property>
+
+    <!-- Add mapped entity classes here -->
+    <!-- Example: <mapping class="tbb.db.Channel"/> -->
+	<mapping class="tbb.db.Schema.Channel"></mapping>
+  </session-factory>
+</hibernate-configuration>

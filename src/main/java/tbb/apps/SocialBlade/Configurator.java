@@ -1,4 +1,4 @@
-package tbb.apps.JScraper;
+package tbb.apps.SocialBlade;
 
 import java.io.IOException;
 import java.nio.file.Files;

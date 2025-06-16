@@ -1,3 +1,3 @@
-# SocialBlade
+# Scraper Template
 
-This app scrapes YouTube and stores statistics in a database.
+A generic scraper template for Selenium apps built in Java. It also includes a pre-configured Maven setup as well as some custom tooling for logging and app configuration. 

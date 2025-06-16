@@ -1,1 +1,4 @@
 /target/
+/database.sqlite
+/log.txt
+/.dbeaver

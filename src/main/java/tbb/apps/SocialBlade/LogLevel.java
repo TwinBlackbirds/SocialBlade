@@ -1,4 +1,4 @@
-package tbb.apps.JScraper;
+package tbb.apps.SocialBlade;
 
 public enum LogLevel {
 	DBG,
