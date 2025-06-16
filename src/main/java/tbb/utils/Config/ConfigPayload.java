@@ -15,7 +15,7 @@ public class ConfigPayload extends JsonFactory {
 	
 	// your configuration parameters
 	public String[] hosts;
-	
+	public boolean headless;
 	
 	// do not touch
 	public ConfigPayload() {

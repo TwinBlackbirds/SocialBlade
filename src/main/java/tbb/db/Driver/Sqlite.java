@@ -38,7 +38,18 @@ public class Sqlite {
 			s.persist(c);
 			t.commit();
 		} catch (Exception e) {
-			log.Write(LogLevel.ERROR, "WriteChannel operation failed! " + e);
+			log.Write(LogLevel.ERROR, "writeChannel operation failed! " + e);
 		}
+	}
+	public boolean findChannel(String ID) {
+		try (Session s = db.openSession()){ // try-with-resources
+			Channel ch = s.find(Channel.class, ID);
+			if (ch != null) {
+				return true;
+			}
+		} catch (Exception e) {
+			log.Write(LogLevel.ERROR, "findChannel operation failed! " + e);
+		}
+		return false;
 	}
 }

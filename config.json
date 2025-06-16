@@ -1,6 +1,6 @@
 {
 	"hosts": [
-		"https://google.com",
-		"https://facebook.com"
-	]
+		"https://youtube.com"
+	],
+	"headless": true
 }
