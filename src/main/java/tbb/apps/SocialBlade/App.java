@@ -37,6 +37,10 @@ public class App
 	
 	private static boolean headless = false;
 	
+	// db 
+	private static ArrayList<String> blacklistedIDs = new ArrayList<String>();
+	private static ArrayList<String> cachedIDs = new ArrayList<String>();
+	
     public static void main( String[] args )
     {
     	// get the list of valid hosts from JSON
@@ -49,6 +53,10 @@ public class App
     		log.Dump(e);
     		return;
     	}
+    	
+    	// turn off hibernate logs
+    	java.util.logging.LogManager.getLogManager().reset();
+    	
     	log.Write(LogLevel.INFO, "Number of hosts: " + hosts.length);
     	
     	// set launch options
@@ -144,7 +152,7 @@ public class App
     		log.Write(LogLevel.WARN, "Getting served the 'search to get started' page");
     		// we are on the page
     		cd.get("https://youtube.com/shorts/");
-    		waitForElement("#reel-video-renderer .video-stream");
+    		waitForElementClickable("#reel-video-renderer .video-stream");
     		WebElement vid = cd.findElement(By.cssSelector("#reel-video-renderer .video-stream"));
     		jsClick(vid);
     		Thread.sleep(3000); // 'watch' the short a little bit
@@ -170,26 +178,62 @@ public class App
     		String ID = cleanChannelURL(href);
     		IDs.add(ID);
     	}
-    	for (String ID : IDs) {
-        	if (!sql.findChannel(ID)) {
-    			// add the rest of the channel info and enter it into database
-        		Channel c = getChannelInfo(ID);
-    			sql.writeChannel(c);
-    		}	
-    	}
-    	// quick-lookup to check if we have a channel
+    	
+    	// OR -- find channel(s) on the sidebar
+    	// (homepage is probably more efficient)
+    	
+    	
+    	// once we have the list of ids
     	// ^ maybe cache the last 100 or so channels in memory so that frequent-flyers can skip DB calls
     	
-    	// find a video (channel) on the sidebar
+    	for (String ID : IDs) {
+    		// check blacklist
+    		if (blacklistedIDs.contains(ID)) {
+    			log.Write(LogLevel.INFO, "Skipping blacklisted ID " + ID);
+    			continue;
+    		}
+    		
+    		// check duplicates
+        	if (!sql.findChannel(ID)) {
+    			// add the rest of the channel info and enter it into database
+        		Channel c;
+        		try {
+        			c = getChannelInfo(ID);	
+        		} catch (Exception e) {
+        			// blacklist invalid id
+        			log.Write(LogLevel.INFO, "Adding invalid ID to blacklist: " + ID);
+        			blacklistedIDs.add(ID);
+        			continue;
+        		}
+        		sql.writeChannel(c);
+    		} else {
+    			// TODO: check the last time it was collected here and perform logic 
+    			// for example, if it was checked within the last say 7 days, skip it
+    			// idea - check if they've uploaded a new video since last pull
+    			log.Write(LogLevel.INFO, "Skipping existing ID " + ID);
+    		}
+    	}
+    	
     	
     }
     
-    static Channel getChannelInfo(String ID) {
-    	String url = "https://youtube.com/@" + ID;
-    	cd.get(url);
-    	waitForElement("h1 > span");
-    	WebElement nameEl = cd.findElement(By.cssSelector("h1 > span")); // channel name
-    	String name = nameEl.getAttribute("innerText");
+    static Channel getChannelInfo(String ID) throws Exception {
+    	int cnt = 0;
+    	// while the page is null
+    	
+    	List<WebElement> nameEl = List.of();
+    	while (nameEl.size() == 0 && cnt < 5) { // retry
+    		log.Write(LogLevel.INFO, "Attempting to load channel page " + ID + "... (" + cnt + ")");
+    		String url = "https://youtube.com/@" + ID;
+    		cd.get(url);
+        	waitUntilPageLoaded();
+        	nameEl = cd.findElements(By.cssSelector("span[class*='white-space-pre-wrap']")); // channel name
+    		cnt++;
+    	}
+    	if (nameEl.size() == 0) {
+    		throw new Exception("Could not get the channel name!");
+    	}
+    	String name = nameEl.get(0).getAttribute("innerText");
     	
     	Channel c = new Channel();
     	c.setID(ID);
@@ -198,6 +242,7 @@ public class App
     	c.setLastChecked(c.getChecked());
     	c.setLastSubscriberCount(c.getSubscriberCount());
     	
+    	// TODO: get actual subscriber count
     	c.setSubscriberCount(0);
     	c.setChecked(LocalDateTime.now());
     	
@@ -241,9 +286,18 @@ public class App
     	} catch (Exception e) { }
     }
     
-    static void waitForElement(String selector) {
+    static void waitForElementClickable(String selector) {
     	new WebDriverWait(cd, Duration.ofSeconds(30)).until(
 		    ExpectedConditions.elementToBeClickable(By.cssSelector(selector))
+		);
+    	try {
+    		Thread.sleep(1000);
+    	} catch (Exception e) { }
+	}
+    
+    static void waitForElementVisible(String selector) {
+    	new WebDriverWait(cd, Duration.ofSeconds(30)).until(
+		    ExpectedConditions.visibilityOfElementLocated(By.cssSelector(selector))
 		);
     	try {
     		Thread.sleep(1000);

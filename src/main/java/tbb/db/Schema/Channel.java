@@ -13,16 +13,19 @@ import jakarta.persistence.*;
 public class Channel {
 
     @Id
-    @Column(name = "id", nullable = false) // ID column in the table
-    public String ID; // youtube.com/c/?
-
-    @Column(name = "name", nullable = false) // Name column in the table
+    @Column(name = "id", nullable = false) 
+    public String ID; // youtube.com/@?
+    
+    @Column(name = "last_video", nullable = false)
+    public String LastVideo; // video id
+    
+    @Column(name = "name", nullable = false) 
     public String Name;
 
-    @Column(name = "subscriber_count", nullable = false) // SubscriberCount column
+    @Column(name = "subscriber_count", nullable = false)
     public int SubscriberCount;
 
-    @Column(name = "last_subscriber_count", nullable = false) // LastSubscriberCount column
+    @Column(name = "last_subscriber_count", nullable = false)
     public int LastSubscriberCount;
 
     @Column(name = "checked", nullable = false) // Checked timestamp
@@ -34,9 +37,8 @@ public class Channel {
     @Transient // Since Duration is not directly supported by JPA, mark it as Transient
     public Duration TimeSinceLastFound;
 
-    @Transient // SubscriberCountDifference is a calculated field, not stored in the DB
-    public int SubscriberCountDifference;
-
+    
+    
     // Default constructor (JPA requirement)
     public Channel() {
     }
@@ -48,6 +50,15 @@ public class Channel {
 
     public void setID(String ID) {
         this.ID = ID;
+    }
+    
+    // TODO: implement these
+    public String getLastVideo() {
+        return LastVideo;
+    }
+
+    public void setLastVideo(String video) {
+        this.LastVideo = video;
     }
 
     public String getName() {
@@ -92,10 +103,6 @@ public class Channel {
 
     public Duration getTimeSinceLastFound() {
         return Duration.between(LastChecked, Checked);
-    }
-
-    public int getSubscriberCountDifference() {
-        return getSubscriberCount() - getLastSubscriberCount();
     }
 
 }

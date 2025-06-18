@@ -16,8 +16,8 @@
     <property name="hibernate.hbm2ddl.auto">update</property>
 
     <!-- Debugging SQL -->
-    <property name="hibernate.show_sql">true</property>
-    <property name="hibernate.format_sql">true</property>
+    <property name="hibernate.show_sql">false</property>
+    <property name="hibernate.format_sql">false</property>
 
     <!-- Optional: JDBC connection pool -->
     <property name="hibernate.connection.pool_size">1</property>
