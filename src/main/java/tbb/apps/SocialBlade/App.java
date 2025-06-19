@@ -6,10 +6,13 @@
 
 package tbb.apps.SocialBlade;
 
+import java.text.NumberFormat;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
@@ -18,7 +21,11 @@ import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
+import com.google.common.base.Strings;
+
+import jakarta.persistence.EntityNotFoundException;
 import tbb.db.Driver.Sqlite;
+import tbb.db.Driver.ChannelCache;
 import tbb.db.Schema.Channel;
 import tbb.utils.Config.ConfigPayload;
 import tbb.utils.Config.Configurator;
@@ -39,13 +46,19 @@ public class App
 	
 	// db 
 	private static ArrayList<String> blacklistedIDs = new ArrayList<String>();
-	private static ArrayList<String> cachedIDs = new ArrayList<String>();
+	private static ChannelCache cachedIDs = new ChannelCache();
+	
+	private static final int MAX_LOAD_ATTEMPTS = 3;
+	
+	// video id regex
+	private static final Pattern pattern = Pattern.compile("(?<=\\?v\\=)[\\w-]+(?=[&/]?)", Pattern.CASE_INSENSITIVE);
 	
     public static void main( String[] args )
     {
     	// get the list of valid hosts from JSON
     	try {
-    		ConfigPayload data = new Configurator(log).getData();
+    		ConfigPayload data = new Configurator<>(log, ConfigPayload.class)
+    							 .getData();
     		hosts = data.hosts; // allowed hosts 
     		headless = data.headless;
     	} catch (Exception e) {
@@ -91,8 +104,11 @@ public class App
             cd.quit();
             // save log to file (destructor calls Dump)
             log.close();
-            System.out.println("Process terminated with return code 0");
     	}   
+    	try {
+			Thread.sleep(5000);
+		} catch (InterruptedException e) { }
+    	System.out.println("Process terminated with return code 0");
      }
     
     // make sure we dont stray from the path
@@ -107,18 +123,33 @@ public class App
     }
     
     static void startStatusMessageDaemon() {
+    	// get starting amount of rows in database 
+    	// every n iterations on the thread, refresh count
+    	// get difference
     	Thread statusThread = new Thread(() -> {
+    		int cnt = 0;
+    		int base = sql.countChannels();
     	    char[] spinner = {'|', '/', '-', '\\'};
     	    int index = 0;
-
+    	    int count = 0;
     	    try {
     	        while (true) {
+    	        	if (count % 15 == 0) {
+    	        		cnt = sql.countChannels();
+    	        	}
     	            // Clear line manually with carriage return and enough spaces
-    	            System.out.print("\r" + "Running... " + spinner[index] + "     ");
+    	        	String msg = "\rRunning... " + spinner[index];
+    	        	int cntOfNew = cnt-base;
+    	        	if (cntOfNew > 0) {
+    	        		msg += " (new: " + (cntOfNew) + ")";
+    	        	}
+    	        	msg += "     ";
+    	            System.out.print(msg);
     	            System.out.flush();
 
-    	            Thread.sleep(300);
+    	            Thread.sleep(300); // Approx. 7.5 seconds between DB length calls
     	            index = (index + 1) % spinner.length;
+    	            count++;
     	        }
     	    } catch (InterruptedException e) {
     	        System.out.println();
@@ -131,24 +162,11 @@ public class App
     }
     
     static void bot() throws Exception {
-
-    	// this locks thread as it will loop forever
-    	// this endlessly goes through youtube and collects data
-    	// goes to the next video once data has been collected
-    	// tries to find as many unique channels as possible
-    	// grabs non-unique channels every so often to get a diff
-    	
-    	
-    	//  -- logic to find a new video --
-    	// search in sidebar until it finds a new creator
-    	// if it cant find a new creator, go to the homepage and try the same
-    	// rinse, repeat
-    	
     	
     	// check if we are getting 'search to get started'
     	List<WebElement> els = cd.findElements(By.cssSelector("ytd-feed-nudge-renderer[contents-location*=\"UNKNOWN\"]"));
-    	int attempts = 1;
-    	while (els.size() > 0) {
+    	int attempts = 0;
+    	while (els.size() > 0 && attempts < MAX_LOAD_ATTEMPTS) {
     		log.Write(LogLevel.WARN, "Getting served the 'search to get started' page");
     		// we are on the page
     		cd.get("https://youtube.com/shorts/");
@@ -159,6 +177,9 @@ public class App
     		cd.get("https://youtube.com/");
     		waitUntilPageLoaded();
     		els = cd.findElements(By.cssSelector("ytd-feed-nudge-renderer[contents-location*=\"UNKNOWN\"]"));
+    	}
+    	if (els.size() > 0) {
+    		throw new Exception("Could not get passed the 'search to get started' page!");
     	}
     	log.Write(LogLevel.INFO, "Passed the 'search to get started' page!");
     	
@@ -182,14 +203,36 @@ public class App
     	// OR -- find channel(s) on the sidebar
     	// (homepage is probably more efficient)
     	
+    	// TODO: 'spider' crawling mode - it finds links on the page and leverages those to keep going
+    	// find a url which will give us the most channels somehow? e.g. AI analysis of outlier?
     	
+    	
+		int successes = parseIDs(IDs);	
+		int fails = IDs.size() - successes;
+    	if (fails > 0) {
+    		double perc = ((double) successes / IDs.size()) * 100;
+    		String msg = String.format(
+    				"Warning: Not all IDs provided to parseID resulted in a valid outcome! %d/%d (%.2f%%) operations succeeded", 
+    				successes, IDs.size(), perc);
+    		log.Write(LogLevel.WARN, msg);
+    	}
+    	
+    }
+    
+    private static int parseIDs(List<String> IDs) {
+
     	// once we have the list of ids
     	// ^ maybe cache the last 100 or so channels in memory so that frequent-flyers can skip DB calls
-    	
+    	int success = 0;
     	for (String ID : IDs) {
     		// check blacklist
     		if (blacklistedIDs.contains(ID)) {
     			log.Write(LogLevel.INFO, "Skipping blacklisted ID " + ID);
+    			continue;
+    		}
+    		// check cache (we just got this channel within this SocialBlade session)
+    		if (cachedIDs.contains(ID)) {
+    			log.Write(LogLevel.INFO, "Skipping cached ID " + ID);
     			continue;
     		}
     		
@@ -205,25 +248,102 @@ public class App
         			blacklistedIDs.add(ID);
         			continue;
         		}
-        		sql.writeChannel(c);
+        		log.Write(LogLevel.INFO, "Inserting channel info for new ID " + ID);
+        		try {
+            		sql.writeChannel(c);
+        		} catch (Exception e) {
+        			log.Write(LogLevel.ERROR, "Insert operation failed for ID " + ID); 
+        			continue;
+        		}
     		} else {
-    			// TODO: check the last time it was collected here and perform logic 
-    			// for example, if it was checked within the last say 7 days, skip it
-    			// idea - check if they've uploaded a new video since last pull
-    			log.Write(LogLevel.INFO, "Skipping existing ID " + ID);
+    			// get existing channel to perform check-against logic
+    			Channel c = null;
+    			try {
+    				c = sql.getChannel(ID);
+    			} catch (Exception e) {
+    				log.Write(LogLevel.WARN, "Could not find channel with ID " + ID);
+    				continue;
+    			}
+    			
+    			// last seen over a week ago
+    			// OR
+    			// they've uploaded a video since last pull
+    			String videoID = "";
+    			try {
+    				videoID = getLastVideo(ID).trim();
+    			} catch (Exception e) {
+    				log.Write(LogLevel.WARN, "Could not get the last video for channel with ID " + ID);
+    				continue;
+    			}
+    			
+    			LocalDateTime aWeekAgo = LocalDateTime.now().minusDays(7);
+    			if (c.getChecked().isBefore(aWeekAgo)
+    				|| !videoID.equalsIgnoreCase(c.getLastVideo())
+    				|| videoID.length() != 11) /*standard yt video id length*/ {
+    				log.Write(LogLevel.WARN, "Overwriting channel info for existing ID " + ID);
+    				c.setLastVideo(null); // clear so it can be overwritten
+    				try {
+        				Channel ch = getChannelInfo(ID, c);
+        				sql.updateChannel(ch);
+    				} catch (Exception e) {
+    					log.Write(LogLevel.ERROR, "Could not get info and update channel with ID " + ID);
+    					continue;
+    				}
+    			}
+    			else {
+    				log.Write(LogLevel.INFO, "Skipping existing ID " + ID);
+    				continue;
+    			}
     		}
+        	success++;
+        	cachedIDs.add(ID);
     	}
+    	return success;
+    }
+    
+    
+    static String getLastVideo(String ID) throws Exception {
+    	int cnt = 0;
+    	// while the page is null
     	
+    	List<WebElement> videoEl = List.of();
+    	while (videoEl.size() == 0 && cnt < MAX_LOAD_ATTEMPTS) { // retry
+    		log.Write(LogLevel.INFO, "Attempting to load videos page of channel " + ID + "... (" + cnt+1 + ")");
+    		String url = "https://youtube.com/@" + ID + "/videos";
+    		cd.get(url);
+        	waitUntilPageLoaded();
+        	videoEl = cd.findElements(By.cssSelector("a#video-title-link")); 
+    		cnt++;
+    	}
+    	if (videoEl.size() == 0) {
+    		throw new Exception("Could not get the channel's videos!");
+    	}
+    	String firstHref = videoEl.get(0).getAttribute("href");
     	
+    	// make regex
+    	Matcher m = pattern.matcher(firstHref);
+    	m.find(); // run regex
+    	String videoID = m.group(); // pull regex result
+    	
+    	if (videoID == null || videoID == "") {
+    		throw new EntityNotFoundException("Could not find VideoID from href with regex!");
+    	}
+    	log.Write(LogLevel.INFO, "Latest video ID: " + videoID);
+    	
+    	return videoID.trim();
     }
     
     static Channel getChannelInfo(String ID) throws Exception {
+    	return getChannelInfo(ID, null);
+    }
+    
+    static Channel getChannelInfo(String ID, Channel existingChannel) throws Exception {
     	int cnt = 0;
     	// while the page is null
     	
     	List<WebElement> nameEl = List.of();
-    	while (nameEl.size() == 0 && cnt < 5) { // retry
-    		log.Write(LogLevel.INFO, "Attempting to load channel page " + ID + "... (" + cnt + ")");
+    	while (nameEl.size() == 0 && cnt < MAX_LOAD_ATTEMPTS) { // retry
+    		log.Write(LogLevel.INFO, "Attempting to load channel page " + ID + "... (" + cnt+1 + ")");
     		String url = "https://youtube.com/@" + ID;
     		cd.get(url);
         	waitUntilPageLoaded();
@@ -235,17 +355,44 @@ public class App
     	}
     	String name = nameEl.get(0).getAttribute("innerText");
     	
+    	// get actual subscriber count
+    	WebElement subEl = cd.findElement(
+    			By.cssSelector(".yt-content-metadata-view-model-wiz__metadata-row--metadata-row-inline > span:nth-child(1):not(:has(*))"));
+    	String subElText = subEl.getAttribute("innerText");
+    	
+    	// parse formatted (e.g  20.3M) 
+    	NumberFormat nf = NumberFormat.getInstance();
+    	Number subElNum = nf.parse(subElText);
+    	if (subElText.contains("M")) {
+    		subElNum = subElNum.doubleValue() * 1000000;
+    	} else if (subElText.contains("K")) {
+    		subElNum = subElNum.doubleValue() * 1000;
+    	}
+    	
     	Channel c = new Channel();
     	c.setID(ID);
     	c.setName(name);
     	
-    	c.setLastChecked(c.getChecked());
-    	c.setLastSubscriberCount(c.getSubscriberCount());
-    	
-    	// TODO: get actual subscriber count
-    	c.setSubscriberCount(0);
+    	c.setSubscriberCount(subElNum.intValue());
     	c.setChecked(LocalDateTime.now());
     	
+    	// updating or making new record?
+    	if (existingChannel == null) {
+    		String videoID = getLastVideo(ID); 
+    		c.setLastVideo(videoID);
+    		c.setTimesEncountered(1);
+    	} else {
+    		// update previous time checked based off last record
+        	c.setLastChecked(existingChannel.getChecked());
+        	c.setLastSubscriberCount(existingChannel.getSubscriberCount());
+        	
+        	if (Strings.isNullOrEmpty(existingChannel.getLastVideo())) { // if ID got reset due to mismatch
+        		c.setLastVideo(getLastVideo(existingChannel.getID()));
+        	} else {
+        		c.setLastVideo(existingChannel.getLastVideo());	
+        	}
+        	c.setTimesEncountered(existingChannel.getTimesEncountered() + 1);
+    	}
     	return c;
     }
     
@@ -304,7 +451,5 @@ public class App
     	} catch (Exception e) { }
 	}
     
-    class Payload {
-    }
 }
 

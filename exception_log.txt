@@ -1,3 +1,0 @@
-tbb.apps.SocialBlade.App.getChannelInfo(App.java:213)
-tbb.apps.SocialBlade.App.bot(App.java:188)
-tbb.apps.SocialBlade.App.main(App.java:80)

@@ -14,6 +14,8 @@ import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;
 import org.hibernate.cfg.Configuration;
 
+import jakarta.persistence.EntityNotFoundException;
+
 
 
 public class Sqlite {
@@ -51,5 +53,49 @@ public class Sqlite {
 			log.Write(LogLevel.ERROR, "findChannel operation failed! " + e);
 		}
 		return false;
+	}
+	
+	public Channel getChannel(String ID) throws Exception {
+		Channel ch = null;
+		try (Session s = db.openSession()){ // try-with-resources
+			ch = s.find(Channel.class, ID);
+		} catch (Exception e) {
+			log.Write(LogLevel.ERROR, "getChannel operation failed! " + e);
+		} 
+		if (ch == null) {
+			throw new EntityNotFoundException("No channel with ID " + ID + " exists in database!");
+		}
+		return ch;
+	}
+	
+	public void updateChannel(Channel c) throws Exception {
+		Channel ch = null;
+		try (Session s = db.openSession()){ // try-with-resources
+			ch = s.find(Channel.class, c.ID);
+			if (ch == null) {
+				throw new EntityNotFoundException("No channel with ID " + c.ID + " exists in database!");
+			}
+			// update operation
+			Transaction t = s.beginTransaction();
+			s.merge(c);
+			t.commit();
+		} catch (EntityNotFoundException ex) {
+			log.Write(LogLevel.ERROR, "updateChannel operation failed! " + ex);
+			throw ex;
+		} catch (Exception e) {
+			log.Write(LogLevel.ERROR, "updateChannel operation failed! " + e);
+		}
+	}
+	
+	public int countChannels() {
+		try (Session s = db.openSession()){ // try-with-resources
+			s.beginTransaction();
+			int result = s.createNativeQuery("select count(*) from channels", Integer.class).uniqueResult();
+			s.getTransaction().commit();
+			return result;
+		} catch (Exception e) {
+			log.Write(LogLevel.ERROR, "countChannels operation failed! " + e);
+		}
+		return 0;
 	}
 }

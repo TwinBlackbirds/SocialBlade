@@ -23,7 +23,7 @@ public class Channel {
     public String Name;
 
     @Column(name = "subscriber_count", nullable = false)
-    public int SubscriberCount;
+    public int SubscriberCount = 0;
 
     @Column(name = "last_subscriber_count", nullable = false)
     public int LastSubscriberCount;
@@ -37,7 +37,8 @@ public class Channel {
     @Transient // Since Duration is not directly supported by JPA, mark it as Transient
     public Duration TimeSinceLastFound;
 
-    
+    @Column(name = "times_encountered", nullable = false, columnDefinition="Decimal(10,0) default '1'") // set default value
+    public int TimesEncountered;
     
     // Default constructor (JPA requirement)
     public Channel() {
@@ -75,6 +76,14 @@ public class Channel {
 
     public void setSubscriberCount(int subscriberCount) {
         this.SubscriberCount = subscriberCount;
+    }
+    
+    public int getTimesEncountered() {
+        return TimesEncountered;
+    }
+
+    public void setTimesEncountered(int timesEncountered) {
+        this.TimesEncountered = timesEncountered;
     }
 
     public int getLastSubscriberCount() {

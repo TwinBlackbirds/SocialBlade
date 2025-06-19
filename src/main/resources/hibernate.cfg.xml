@@ -5,7 +5,7 @@
 <hibernate-configuration>
   <session-factory>
 
-    <!-- SQLite dialect from Gwenn -->
+    <!-- Community SQLite dialect -->
     <property name="hibernate.dialect">tbb.db.Driver.SQLiteDialect</property>
 
     <!-- JDBC driver and URL -->
@@ -19,9 +19,9 @@
     <property name="hibernate.show_sql">false</property>
     <property name="hibernate.format_sql">false</property>
 
-    <!-- Optional: JDBC connection pool -->
-    <property name="hibernate.connection.pool_size">1</property>
-
+    <!-- Set maximum JDBC connection pool size -->
+    <property name="hibernate.connection.pool_size">10</property>
+    
     <!-- Optional: Disable second-level cache (safe for testing) -->
     <property name="hibernate.cache.use_second_level_cache">false</property>
 

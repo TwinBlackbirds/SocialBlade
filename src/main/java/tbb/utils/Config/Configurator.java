@@ -15,34 +15,34 @@ import tbb.utils.Logger.LogLevel;
 import tbb.utils.Logger.Logger;
 
 
-public class Configurator {
+public class Configurator<T extends ConfigPayload> {
 	// private
 	private final String filepathStr = "config.json";
 	private final Path filepath = Paths.get(filepathStr);
 	private Logger log = null;
-	private ConfigPayload data = null;
+	private T data;
+	private Class<T> type;
 	
 	
-	// do not touch
-	public Configurator(Logger log) throws IOException {
+	@SuppressWarnings("unchecked")
+	public Configurator(Logger log, Class<T> type) throws IOException {
 		this.log = log;
-		
+		this.type = type;
 		ObjectMapper om = new ObjectMapper();
 		if (!Files.exists(filepath)) {
 			makeDefaultFile(om);
 		}
 		try {
 			String fStr = Files.readString(filepath);
-			this.data = om.readValue(fStr, ConfigPayload.class); // read as json 
+			this.data = om.readValue(fStr, type); // read as json 
 		} catch (Exception e) {
 			log.Write(LogLevel.ERROR, "Could not read configuration file!");
 		}
 	}
 	
-	// do not touch
 	void makeDefaultFile(ObjectMapper om) {
 		log.Write(LogLevel.INFO, "Falling back to default configuration file");
-		ConfigPayload defaultPayload = new ConfigPayload();
+		ConfigPayload defaultPayload = new ConfigPayload(); // default payload
 		try {
 			Files.createFile(filepath);
 			String jsonStr = om.writeValueAsString(defaultPayload);
@@ -52,7 +52,7 @@ public class Configurator {
 		}
 	}
 
-	public ConfigPayload getData() {
+	public T getData() {
 		return data;
 	}
 }

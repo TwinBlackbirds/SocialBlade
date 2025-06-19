@@ -5,6 +5,7 @@
 package tbb.utils.Logger;
 
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -73,9 +74,12 @@ public class Logger implements AutoCloseable {
 			} catch (Exception ex) { /* swallow */ };
 		}
 		StringBuilder s = new StringBuilder();
-		for (StackTraceElement el : e.getStackTrace()) {
+		
+		s.append(e.getMessage()).append("\n"); // msg
+		for (StackTraceElement el : e.getStackTrace()) { // trace
 			s.append(el.toString()).append("\n");
 		}
+		
 		try {
 			Files.writeString(pa, s.toString());
 		} catch (Exception ex) { /* swallow */}
@@ -83,6 +87,18 @@ public class Logger implements AutoCloseable {
 
 	@Override
 	public void close() {
+		Path log = Paths.get("log.txt");
+		Path exLog = Paths.get("exception_log.txt");
+		if (Files.exists(log)) {
+			try {
+				Files.delete(log);
+			} catch (IOException e) {}
+		}
+		if (Files.exists(exLog)) {
+			try {
+				Files.delete(exLog);
+			} catch (IOException e) {}
+		}
 		Write(LogLevel.DBG, "Dumping log to file");
 		this.Dump();
 	}

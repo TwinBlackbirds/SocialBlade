@@ -4,7 +4,7 @@
 
   <groupId>tbb</groupId>
   <artifactId>apps.SocialBlade</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
+  <version>0.0.2</version>
   <packaging>jar</packaging>
 
   <name>apps.SocialBlade</name>
@@ -54,6 +54,7 @@
 	    <version>7.0.2.Final</version>
 	</dependency>
 	
+	<!-- Hibernate SQLite dialect compatibility library -->
 	<!-- https://mvnrepository.com/artifact/org.hibernate.orm/hibernate-community-dialects -->
 	<dependency>
 	    <groupId>org.hibernate.orm</groupId>
@@ -61,7 +62,25 @@
 	    <version>7.0.2.Final</version>
 	</dependency>
   
-  </dependencies>
   
-  
+  	<!-- 
+		used to take control over Hibernate's logging configuration 
+	-->
+  	<!-- SLF4J API -->
+	<dependency>
+	    <groupId>org.slf4j</groupId>
+	    <artifactId>slf4j-api</artifactId>
+	    <version>2.0.9</version>
+	</dependency>
+	
+	<!-- 
+		used to take control over Hibernate's logging configuration 
+	-->
+	<!-- Logback classic (the implementation) -->
+	<dependency>
+	    <groupId>ch.qos.logback</groupId>
+	    <artifactId>logback-classic</artifactId>
+	    <version>1.4.11</version>
+	</dependency>
+  </dependencies> 
 </project>
