@@ -5,10 +5,14 @@
 
 package tbb.utils.Config;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+
+import com.fasterxml.jackson.core.JsonEncoding;
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import tbb.utils.Logger.LogLevel;
@@ -24,7 +28,6 @@ public class Configurator<T extends ConfigPayload> {
 	private Class<T> type;
 	
 	
-	@SuppressWarnings("unchecked")
 	public Configurator(Logger log, Class<T> type) throws IOException {
 		this.log = log;
 		this.type = type;
@@ -37,6 +40,27 @@ public class Configurator<T extends ConfigPayload> {
 			this.data = om.readValue(fStr, type); // read as json 
 		} catch (Exception e) {
 			log.Write(LogLevel.ERROR, "Could not read configuration file!");
+		}
+	}
+	
+	public void writeConfig(T p) {
+		data = p;
+		ObjectMapper om = new ObjectMapper();
+		if (Files.exists(filepath)) {
+			try {
+				Files.delete(filepath);
+				Files.write(filepath, new byte[0]);
+			} catch (Exception e) {
+				/*swallow*/
+			}
+		}
+		try {
+			File f = new File(filepathStr);
+			JsonGenerator j = om.createGenerator(f, JsonEncoding.UTF8);
+			j.writePOJO(p);
+			j.close();
+		} catch (Exception e) {
+			log.Write(LogLevel.ERROR, "Could not write configuration file!");
 		}
 	}
 	

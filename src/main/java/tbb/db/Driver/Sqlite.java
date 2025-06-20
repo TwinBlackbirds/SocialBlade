@@ -12,6 +12,12 @@ import tbb.utils.Logger.Logger;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;
+import org.hibernate.boot.Metadata;
+import org.hibernate.boot.MetadataSources;
+import org.hibernate.boot.registry.BootstrapServiceRegistry;
+import org.hibernate.boot.registry.BootstrapServiceRegistryBuilder;
+import org.hibernate.boot.registry.StandardServiceRegistry;
+import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 import org.hibernate.cfg.Configuration;
 
 import jakarta.persistence.EntityNotFoundException;
@@ -23,10 +29,20 @@ public class Sqlite {
 	public static final SessionFactory db;
 	
 	static {
-		Configuration config = new Configuration().configure();
-		// debug
-		// System.out.println("Dialect = " + config.getProperty("hibernate.dialect"));
-		db = config.buildSessionFactory();
+		
+		BootstrapServiceRegistry bootstrapRegistry =
+			    new BootstrapServiceRegistryBuilder()
+			        .applyIntegrator(new SQLiteIntegrator()) // ✔️ register integrator here
+			        .build();
+		
+		StandardServiceRegistry standardRegistry =
+			    new StandardServiceRegistryBuilder(bootstrapRegistry)
+			        .configure() // hibernate.cfg.xml
+			        .build();
+		
+		db = new MetadataSources(standardRegistry)
+			    .buildMetadata() // annotated classes
+			    .buildSessionFactory();
 	}
 	
 	public Sqlite(Logger log) {

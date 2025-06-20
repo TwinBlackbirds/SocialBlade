@@ -41,8 +41,8 @@ public class App
 	private static Sqlite sql = new Sqlite(log);
 
 	// config
-	private static String[] hosts = new String[0];
-	private static boolean headless = false;
+	private static Configurator<ConfigPayload> _config;
+	private static ConfigPayload config;
 	
 	// db 
 	private static ArrayList<String> blacklistedIDs = new ArrayList<String>();
@@ -50,35 +50,38 @@ public class App
 	
 	// while loop bounds
 	private static final int MAX_LOAD_ATTEMPTS = 3;
+	private static final int SCROLLS = 5;
 	
 	// video id regex
 	private static final Pattern pattern = Pattern.compile("(?<=\\?v\\=)[\\w-]+(?=[&/]?)", Pattern.CASE_INSENSITIVE);
 	
-    public static void main( String[] args )
-    {
-    	
-    	// get the list of valid hosts from JSON
-    	try {
-    		ConfigPayload data = new Configurator<>(log, ConfigPayload.class)
-    							 .getData();
-    		hosts = data.hosts; // allowed hosts 
-    		headless = data.headless;
+	public static void main(String[] args) {
+		// TODO: ask user if they want to configure or start the bot
+		// read arguments from cli to automatically start
+		try {
+			_config = new Configurator<>(log, ConfigPayload.class);
+			config = _config.getData();
     	} catch (Exception e) {
     		log.Write(LogLevel.ERROR, "Could not build configurator! Stack trace available in exception_log.txt");
     		log.Dump(e);
     		return;
     	}
-    	
+		
+		start_bot(); // old main func
+	}
+	
+    public static void start_bot()
+    {
     	// turn off hibernate logs
     	java.util.logging.LogManager.getLogManager().reset();
     	
-    	log.Write(LogLevel.INFO, "Number of hosts: " + hosts.length);
+    	log.Write(LogLevel.INFO, "Number of hosts: " + config.hosts.length);
     	
     	// set launch options
 		log.Write(LogLevel.DBG, "Setting Chrome launch options");
     	ChromeOptions co = new ChromeOptions();
     	
-    	if (headless) {
+    	if (config.headless) {
     		co.addArguments("headless");	
     	}
     	
@@ -93,9 +96,12 @@ public class App
     	js = (JavascriptExecutor)cd;
     	startStatusMessageDaemon();
     	// String s = loopUntilInput();
-    	cd.get(ensureSchema(hosts[0], true));
+    	cd.get(ensureSchema(config.hosts[0], true));
     	
     	try {
+    		// TODO: fix logging so it dumps intermittently
+    		// deletes file on launch, appends instead
+    		// append after every bot() loop
     		// main loop	
     		while (true) {
         		bot(); 
@@ -118,7 +124,7 @@ public class App
     
     // make sure we dont stray from the path
     static boolean checkHost() {
-    	for (String host : hosts) {
+    	for (String host : config.hosts) {
 			if (!cd.getCurrentUrl().contains(ensureSchema(host, false))) { // ensure valid host
     			log.Write(LogLevel.WARN, "We are on an invalid host! Host: " + cd.getCurrentUrl());
     			return false;
@@ -195,12 +201,23 @@ public class App
     		cd.get("https://youtube.com");
     		waitUntilPageLoaded();
     	}
+    	
+    	// TODO: Scroll the page so that the renderer will load more elements 
+    	// Should drastically improve performance
+    	for (int i = 0; i < SCROLLS; i++) {
+    		js.executeScript(String.format("window.scrollBy(0, %d);", 1080*i), "");
+    		Thread.sleep(1000);
+    	}
+    	js.executeScript("window.scrollTo(0, 0);",  "");
+    	
 		// -- look for a unique channel (compare to DB)
     	List<WebElement> channels = cd.findElements(By.cssSelector("[class*='ytd-channel-name'] a"));
     	ArrayList<String> IDs = new ArrayList<String>();
     	for (WebElement channel : channels) {
-    		
     		String href = channel.getDomAttribute("href");
+    		if (href == null) { // no HREF on element (?) 
+    			continue;
+    		}
     		String ID = cleanChannelURL(href);
     		IDs.add(ID);
     	}
@@ -308,8 +325,10 @@ public class App
     	while (videoEl.size() == 0 && cnt < MAX_LOAD_ATTEMPTS) { // retry
     		log.Write(LogLevel.INFO, "Attempting to load videos page of channel " + ID + "... (" + cnt+1 + ")");
     		String url = "https://youtube.com/@" + ID + "/videos";
-    		cd.get(url);
-        	waitUntilPageLoaded();
+    		if (!url.endsWith("/videos") || !url.contains(ID)) {
+    			cd.get(url); // we are on the wrong page
+    		}
+    		waitUntilPageLoaded();
         	videoEl = cd.findElements(By.cssSelector("a#video-title-link")); 
     		cnt++;
     	}
@@ -342,7 +361,7 @@ public class App
     	List<WebElement> nameEl = List.of();
     	while (nameEl.size() == 0 && cnt < MAX_LOAD_ATTEMPTS) { // retry
     		log.Write(LogLevel.INFO, "Attempting to load channel page " + ID + "... (" + cnt+1 + ")");
-    		String url = "https://youtube.com/@" + ID;
+    		String url = "https://youtube.com/@" + ID + "/videos"; // preload videos page
     		cd.get(url);
         	waitUntilPageLoaded();
         	nameEl = cd.findElements(By.cssSelector("span[class*='white-space-pre-wrap']")); // channel name
