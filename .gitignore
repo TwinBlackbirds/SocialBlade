@@ -2,3 +2,5 @@
 /database.sqlite
 /log.txt
 /.dbeaver
+/database.sqlite-shm
+/database.sqlite-wal
