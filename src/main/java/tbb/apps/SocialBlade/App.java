@@ -34,20 +34,21 @@ import tbb.utils.Logger.Logger;
 
 public class App 
 {
-	// TODO: change debugMode to program argument eventually
+	// drivers
 	private static Logger log = new Logger(LogLevel.ERROR);
 	private static ChromeDriver cd;
 	private static JavascriptExecutor js;
-	private static String[] hosts = new String[0];
-	
 	private static Sqlite sql = new Sqlite(log);
-	
+
+	// config
+	private static String[] hosts = new String[0];
 	private static boolean headless = false;
 	
 	// db 
 	private static ArrayList<String> blacklistedIDs = new ArrayList<String>();
 	private static ChannelCache cachedIDs = new ChannelCache();
 	
+	// while loop bounds
 	private static final int MAX_LOAD_ATTEMPTS = 3;
 	
 	// video id regex
@@ -55,6 +56,7 @@ public class App
 	
     public static void main( String[] args )
     {
+    	
     	// get the list of valid hosts from JSON
     	try {
     		ConfigPayload data = new Configurator<>(log, ConfigPayload.class)
@@ -94,7 +96,10 @@ public class App
     	cd.get(ensureSchema(hosts[0], true));
     	
     	try {
-    		bot(); // main loop
+    		// main loop	
+    		while (true) {
+        		bot(); 
+    		}
     	} catch (Exception e) {
     		log.Write(LogLevel.ERROR, "Bot failed! " + e);
     		log.Dump(e);
@@ -199,13 +204,6 @@ public class App
     		String ID = cleanChannelURL(href);
     		IDs.add(ID);
     	}
-    	
-    	// OR -- find channel(s) on the sidebar
-    	// (homepage is probably more efficient)
-    	
-    	// TODO: 'spider' crawling mode - it finds links on the page and leverages those to keep going
-    	// find a url which will give us the most channels somehow? e.g. AI analysis of outlier?
-    	
     	
 		int successes = parseIDs(IDs);	
 		int fails = IDs.size() - successes;

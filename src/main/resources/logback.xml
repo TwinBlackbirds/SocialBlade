@@ -1,5 +1,5 @@
 <configuration>
-  <logger name="org.hibernate" level="WARN"/>
+  <logger name="org.hibernate" level="ERROR"/>
   
   <root level="ERROR">
     <appender-ref ref="STDOUT"/>
