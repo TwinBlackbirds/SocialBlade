@@ -19,12 +19,14 @@ public class ConfigPayload extends JsonFactory {
 	
 	// do not touch
 	public ConfigPayload() {
-		this(new ArrayList<String>());
+		this(new String[0], true);
 	}
 	
 	// configure if you'd like
-	public ConfigPayload(ArrayList<String> hosts) {
+	public ConfigPayload(String[] hosts, boolean headless) {
 		super();
-		this.hosts = hosts.toArray(new String[0]);
+		this.hosts = hosts;
+		this.headless = headless;
 	}
+	
 }

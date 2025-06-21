@@ -41,8 +41,8 @@ public class App
 	private static Sqlite sql = new Sqlite(log);
 
 	// config
-	private static Configurator<ConfigPayload> _config;
-	private static ConfigPayload config;
+	private static Configurator _config = null;
+	private static ConfigPayload config = null;
 	
 	// db 
 	private static ArrayList<String> blacklistedIDs = new ArrayList<String>();
@@ -54,12 +54,12 @@ public class App
 	
 	// video id regex
 	private static final Pattern pattern = Pattern.compile("(?<=\\?v\\=)[\\w-]+(?=[&/]?)", Pattern.CASE_INSENSITIVE);
-	
+
 	public static void main(String[] args) {
 		// TODO: ask user if they want to configure or start the bot
 		// read arguments from cli to automatically start
 		try {
-			_config = new Configurator<>(log, ConfigPayload.class);
+			_config = new Configurator(log);
 			config = _config.getData();
     	} catch (Exception e) {
     		log.Write(LogLevel.ERROR, "Could not build configurator! Stack trace available in exception_log.txt");
@@ -72,6 +72,11 @@ public class App
 	
     public static void start_bot()
     {
+    	// in-memory backup
+    	if (_config == null || config == null) {
+    		String[] hosts = {"https://youtube.com"};
+    		config = new ConfigPayload(hosts, true);
+    	}
     	// turn off hibernate logs
     	java.util.logging.LogManager.getLogManager().reset();
     	
@@ -202,7 +207,7 @@ public class App
     		waitUntilPageLoaded();
     	}
     	
-    	// TODO: Scroll the page so that the renderer will load more elements 
+    	// Scroll the page so that the renderer will load more elements 
     	// Should drastically improve performance
     	for (int i = 0; i < SCROLLS; i++) {
     		js.executeScript(String.format("window.scrollBy(0, %d);", 1080*i), "");
